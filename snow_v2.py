@@ -5,7 +5,7 @@ import Tracker
 # filename = 'http://192.168.217.103/mjpg/video.mjpg'
 
 
-filename = 'videos/output_video.mp4'
+filename = 'videos/232-video.mp4'
 
 
 def resizing(frame):
@@ -40,7 +40,7 @@ height = int(frame.shape[0])
 
 iter_for_dil = 15
 max_distance = 100  # максимальное расстояние на которое может переместиться обьект за один кадр
-area_treshhold = width * height * 1 / 2000  # минимально допустимая площадь для отрисовки контура
+area_treshhold = width * height * 1 / 60  # минимально допустимая площадь для отрисовки контура
 distance_traectory = 200  # допустимое расстояние между двумя точками , для отслеживания трека
 trajectory_len = 40  # длина траектории
 detect_interval = 10  # раз в сколько кадров обновляем траектории
@@ -53,38 +53,20 @@ tracker = Tracker.EuclideanDistTracker(max_distance)
 def Object_Detect(frame, frame_next, area_tresh):
     mean = np.median(frame_list, axis=0).astype(dtype=np.uint8)
     frame=np.median(frame_list[4:], axis=0).astype(dtype=np.uint8)
+
     diff = cv2.absdiff(frame, mean)
 
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-
     blur = cv2.GaussianBlur(gray, (5, 5), 25)
-
     _, mask_obj = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)
 
-    blur_contours, _ = cv2.findContours(mask_obj, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    dilated = cv2.dilate(mask_obj, None, iterations=iter_for_dil)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    new_blur = np.zeros_like(blur)
-    for cnt in blur_contours:
-        if len(cnt) > 1:
-            cv2.drawContours(new_blur, cnt, -1, 255, 2)
-
-    dilated = cv2.dilate(new_blur, None, iterations=iter_for_dil)
-    erode = dilated
-    # erode = cv2.erode(dilated, None, iterations=7)
-
-    contours, _ = cv2.findContours(erode, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cont_with_area = []
     detections = []
     for cnt in contours:
-        area_cnt = cv2.contourArea(cnt)
-        cont_with_area.append((cnt, area_cnt))
 
-    cont_with_area.sort(key=lambda x: x[1], reverse=True)
-    for cnt, area in cont_with_area:
-
-        # Calculate area and remove small elements
-
-        if area > area_tresh:
+        if cv2.contourArea(cnt) > area_tresh:
             x, y, w, h = cv2.boundingRect(cnt)
             detections.append([x, y, w, h])
     upd = tracker.update(detections)
