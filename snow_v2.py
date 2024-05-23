@@ -5,7 +5,7 @@ import Tracker
 # filename = 'http://192.168.217.103/mjpg/video.mjpg'
 
 
-filename = 'videos/232-video.mp4'
+filename = 'videos/shaked.mp4'
 
 
 def resizing(frame):
@@ -15,7 +15,7 @@ def resizing(frame):
     return cv2.resize(frame, dim)
 
 
-percent = 30
+percent = 70
 
 cap = cv2.VideoCapture(filename)
 
@@ -40,7 +40,7 @@ height = int(frame.shape[0])
 
 iter_for_dil = 15
 max_distance = 100  # максимальное расстояние на которое может переместиться обьект за один кадр
-area_treshhold = width * height * 1 / 60  # минимально допустимая площадь для отрисовки контура
+area_treshhold = width * height * 1 / 2000  # минимально допустимая площадь для отрисовки контура
 distance_traectory = 200  # допустимое расстояние между двумя точками , для отслеживания трека
 trajectory_len = 40  # длина траектории
 detect_interval = 10  # раз в сколько кадров обновляем траектории
@@ -70,7 +70,7 @@ def Object_Detect(frame, frame_next, area_tresh):
             x, y, w, h = cv2.boundingRect(cnt)
             detections.append([x, y, w, h])
     upd = tracker.update(detections)
-    return upd, mask_obj
+    return upd, frame
 
 
 lk_params = dict(winSize=(15, 15),
@@ -87,7 +87,7 @@ id_list = []
 while True:
     img = frame.copy()
 
-    boxes_ids, dilat = Object_Detect(frame, frame_next, area_treshhold)
+    boxes_ids, some_frame_for_test = Object_Detect(frame, frame_next, area_treshhold)
 
     for box_id in boxes_ids:
         x, y, w, h, id = box_id
@@ -152,7 +152,7 @@ while True:
     frame_idx += 1
 
     cv2.imshow('Optical Flow', frame)
-    cv2.imshow('dilat', dilat)
+    cv2.imshow('dilat', some_frame_for_test)
     # cv2.imshow('Mask', mask)
 
     frame_list.remove(frame)
