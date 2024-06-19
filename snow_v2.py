@@ -1,12 +1,14 @@
 import numpy as np
 import cv2
 import Tracker
+import video_stabilization as vs
+import video_stab as stab
 
 # filename = 'http://192.168.217.103/mjpg/video.mjpg'
 
 
-filename = 'videos/shaked.mp4'
-
+filename = 'video_out_3.mp4'
+#filename = 'videos/shaked.mp4'
 
 def resizing(frame):
     width = int(frame.shape[1] * percent / 100)
@@ -18,14 +20,6 @@ def resizing(frame):
 percent = 70
 
 cap = cv2.VideoCapture(filename)
-
-'''
-suc, frame = cap.read()
-frame = resizing(frame)
-suc, frame_next = cap.read()
-frame_next = resizing(frame_next)
-'''
-
 frame_list = []
 for i in range(10):
     suc, n_frame = cap.read()
@@ -40,7 +34,7 @@ height = int(frame.shape[0])
 
 iter_for_dil = 15
 max_distance = 100  # максимальное расстояние на которое может переместиться обьект за один кадр
-area_treshhold = width * height * 1 / 2000  # минимально допустимая площадь для отрисовки контура
+area_treshhold = width * height * 1 / 200  # минимально допустимая площадь для отрисовки контура
 distance_traectory = 200  # допустимое расстояние между двумя точками , для отслеживания трека
 trajectory_len = 40  # длина траектории
 detect_interval = 10  # раз в сколько кадров обновляем траектории
@@ -49,16 +43,28 @@ frame_idx = 0  # счетчик кадров
 
 tracker = Tracker.EuclideanDistTracker(max_distance)
 
+stab_frames = []
 
-def Object_Detect(frame, frame_next, area_tresh):
-    mean = np.median(frame_list, axis=0).astype(dtype=np.uint8)
-    frame=np.median(frame_list[4:], axis=0).astype(dtype=np.uint8)
 
-    diff = cv2.absdiff(frame, mean)
+def Object_Detect(area_tresh):
+
+
+    if frame_idx == 0:
+        for img in frame_list:
+            stab_frames.append(stab.stabilize(img.copy(),200))
+    else:
+        del stab_frames[0]
+        stab_frames.append(stab.stabilize(frame_list[len(frame_list) - 1].copy(),200))
+
+    mean = np.median(stab_frames, axis=0).astype(dtype=np.uint8)
+    frames = np.median(stab_frames[5:], axis=0).astype(dtype=np.uint8)
+
+
+    diff = cv2.absdiff(mean, frames)
 
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 25)
-    _, mask_obj = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)
+    _, mask_obj = cv2.threshold(blur, 15, 255, cv2.THRESH_BINARY)
 
     dilated = cv2.dilate(mask_obj, None, iterations=iter_for_dil)
     contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -70,7 +76,7 @@ def Object_Detect(frame, frame_next, area_tresh):
             x, y, w, h = cv2.boundingRect(cnt)
             detections.append([x, y, w, h])
     upd = tracker.update(detections)
-    return upd, frame
+    return upd, stab_frames[0]
 
 
 lk_params = dict(winSize=(15, 15),
@@ -83,11 +89,9 @@ feature_params = dict(maxCorners=20,
                       blockSize=7)
 
 id_list = []
-
 while True:
-    img = frame.copy()
 
-    boxes_ids, some_frame_for_test = Object_Detect(frame, frame_next, area_treshhold)
+    boxes_ids, some_frame_for_test = Object_Detect(area_treshhold)
 
     for box_id in boxes_ids:
         x, y, w, h, id = box_id
@@ -126,7 +130,6 @@ while True:
 
         # Draw all the trajectories
         cv2.polylines(frame, [np.int32(trajectory) for trajectory in trajectories], False, (0, 0, 255), 2)
-        # cv2.putText(frame, 'track count: %d' % len(trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
 
     # Update interval - When to update and detect new features
     if frame_idx % detect_interval == 0:
@@ -153,14 +156,14 @@ while True:
 
     cv2.imshow('Optical Flow', frame)
     cv2.imshow('dilat', some_frame_for_test)
-    # cv2.imshow('Mask', mask)
+
+
 
     frame_list.remove(frame)
     frame = frame_next  #
     suc, new_frame = cap.read()
     new_frame = resizing(new_frame)
     frame_list.append(new_frame)
-
     frame_next = frame_list[1]
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
