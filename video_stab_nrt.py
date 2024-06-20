@@ -1,4 +1,3 @@
-# Import numpy and OpenCV
 import numpy as np
 import cv2
 
@@ -17,19 +16,30 @@ def movingAverage(curve, radius):
     return curve_smoothed
 
 
+def MedianAverage(curve):
+    # Define the filter
+    f = np.ones(curve.size)
+    # Add padding to the boundaries
+    func = np.median(curve)
+    curve_smoothed = func * f
+    # return smoothed curve
+    return curve_smoothed
+
+
 def smooth(trajectory):
     smoothed_trajectory = np.copy(trajectory)
     # Filter the x, y and angle curves
     for i in range(3):
-        smoothed_trajectory[:, i] = movingAverage(trajectory[:, i], radius=SMOOTHING_RADIUS)
+        # выБор функции:movingAverage- скользящее среднее, MedianAverage- функция константа, равная среднему от траектории всего видео
+        # smoothed_trajectory[:, i] = movingAverage(trajectory[:, i], radius=SMOOTHING_RADIUS)
+        smoothed_trajectory[:, i] = MedianAverage(trajectory[:, i])
 
     return smoothed_trajectory
 
 
 def fixBorder(frame):
     s = frame.shape
-    # Scale the image 4% without moving the center
-    T = cv2.getRotationMatrix2D((s[1] / 2, s[0] / 2), 0, 1.15)
+    T = cv2.getRotationMatrix2D((s[1] / 2, s[0] / 2), 0, 1.10)
     frame = cv2.warpAffine(frame, T, (s[1], s[0]))
     return frame
 
@@ -54,7 +64,7 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
 
 # Set up output video
-out = cv2.VideoWriter('video_out.mp4', fourcc, fps, (2 * w, h))
+out = cv2.VideoWriter('video_out.mp4', fourcc, fps, (w, h))
 
 # Read first frame
 _, prev = cap.read()
@@ -93,7 +103,7 @@ for i in range(n_frames - 2):
     curr_pts = curr_pts[idx]
 
     # Find transformation matrix
-    m,_ = cv2.estimateAffine2D(prev_pts, curr_pts)  # will only work with OpenCV-3 or less
+    m, _ = cv2.estimateAffine2D(prev_pts, curr_pts)  # will only work with OpenCV-3 or less
 
     # Extract traslation
     dx = m[0, 2]
@@ -153,15 +163,16 @@ for i in range(n_frames - 2):
     frame_stabilized = fixBorder(frame_stabilized)
 
     # Write the frame to the file
-    frame_out = cv2.hconcat([frame, frame_stabilized])
+    # frame_out = cv2.hconcat([frame, frame_stabilized])
+    frame_out = frame_stabilized
 
     # If the image is too big, resize it.
     if (frame_out.shape[1] > 1920):
         frame_out = cv2.resize(frame_out, (frame_out.shape[1] / 2, frame_out.shape[0] / 2));
 
-    cv2.imshow("Before and After", frame_out)
+    cv2.imshow("Before and After", frame_stabilized)
     cv2.waitKey(10)
-    #out.write(frame_out)
+    out.write(frame_stabilized)
 
 # Release video
 cap.release()

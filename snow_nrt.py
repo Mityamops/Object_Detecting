@@ -1,14 +1,14 @@
 import numpy as np
 import cv2
 import Tracker
-import video_stabilization as vs
 
 # filename = 'http://192.168.217.103/mjpg/video.mjpg'
 
 
-# filename = 'video_out_3.mp4'
-filename = 'videos/shaked.mp4'
+filename = 'video_out.mp4'
 
+
+# filename = 'videos/shaked.mp4'
 
 def resizing(frame):
     width = int(frame.shape[1] * percent / 100)
@@ -47,15 +47,8 @@ stab_frames = []
 
 
 def Object_Detect():
-    if frame_idx == 0:
-        for img in frame_list:
-            stab_frames.append(vs.stabilized_frame(img.copy()))
-    else:
-        del stab_frames[0]
-        stab_frames.append(vs.stabilized_frame(frame_list[len(frame_list) - 1].copy()))
-
-    mean = np.median(stab_frames, axis=0).astype(dtype=np.uint8)
-    frames = np.median(stab_frames[1:], axis=0).astype(dtype=np.uint8)
+    mean = np.median(frame_list, axis=0).astype(dtype=np.uint8)
+    frames = np.median(frame_list[5:], axis=0).astype(dtype=np.uint8)
 
     diff = cv2.absdiff(mean, frames)
 
@@ -73,7 +66,7 @@ def Object_Detect():
             x, y, w, h = cv2.boundingRect(cnt)
             detections.append([x, y, w, h])
     upd = tracker.update(detections)
-    return upd, stab_frames[0]
+    return upd, mask_obj
 
 
 lk_params = dict(winSize=(15, 15),
